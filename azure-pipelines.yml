@@ -1,0 +1,81 @@
+trigger: none
+pool: mylbpool
+stages:
+  - stage: scaning
+    displayName: scaning
+    jobs:
+      - job: codescaning
+        displayName: scaning
+        steps:
+        - task: CmdLine@2
+          displayName: Scanning & Linting
+          inputs:
+            script: 'echo Scanning.....and Linting.... Checks'
+  - stage: buidandpush
+    displayName: Build and Push
+    jobs:
+      - job: buildandpush
+        displayName: Build and Push
+        steps:          
+        - task: Npm@1
+          displayName: npm install
+          inputs:
+            command: 'install'
+            workingDir: '$(System.DefaultWorkingDirectory)'
+        - task: Npm@1
+          inputs:
+            command: 'custom'
+            workingDir: '.'
+            customCommand: 'npm build'
+        - task: PublishBuildArtifacts@1
+          inputs:
+            PathtoPublish: '$(System.DefaultWorkingDirectory)/build'
+            ArtifactName: 'build'
+            publishLocation: 'Container'
+  - stage: deployment
+    dependsOn: buidandpush  
+    displayName: deployment
+    condition: |
+      or(
+      eq(variables['Build.SourceBranch'], 'refs/heads/main'),
+      eq(variables['Build.SourceBranch'], 'refs/heads/qa'),
+      eq(variables['Build.SourceBranch'], 'refs/heads/dev'))
+    jobs:
+      - job: manualvalidation
+        displayName: manualvalidation
+        steps:
+        - task: ManualValidation@1
+          inputs:
+            notifyUsers: 'mahesh.chandra1985@outlook.com'
+            approvers: 'mahesh.chandra1985@outlook.com'
+
+                  
+      - job: deploytovm
+        displayName: deploy to vm
+        dependsOn: manualvalidation
+        steps:
+        - task: DownloadBuildArtifacts@1
+          inputs:
+            buildType: 'current'
+            downloadType: 'single'
+            artifactName: 'build'
+            downloadPath: '$(Build.ArtifactStagingDirectory)'
+        - task: CopyFilesOverSSH@0
+          inputs:
+            sshEndpoint: 'vmtopipelin'
+            sourceFolder: '$(Build.ArtifactStagingDirectory)'
+            contents: '**'
+            targetFolder: '/home/newuser'
+            readyTimeout: '20000'
+        - task: SSH@0
+          inputs:
+            sshEndpoint: 'vmtopipelin'
+            runOptions: 'inline'
+            inline: |
+              cd /home/newuser/build
+              sudo cp  -r * /var/www/html
+            readyTimeout: '20000'
+
+
+
+           
