@@ -26,7 +26,7 @@ stages:
           inputs:
             command: 'custom'
             workingDir: '.'
-            customCommand: 'npm run build'
+            customCommand: ' run build'
         - task: PublishBuildArtifacts@1
           inputs:
             PathtoPublish: '$(System.DefaultWorkingDirectory)/build'
